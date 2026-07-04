@@ -1,0 +1,7 @@
+pymupdf
+chromadb
+sentence-transformers
+requests
+matplotlib
+gradio
+openai-whisper
