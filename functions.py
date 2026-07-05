@@ -20,22 +20,26 @@ from config import OUTPUTS_DIR
 MAX_SECTION_CHARS = 6000  # جلوگیری از رد شدن از ظرفیت context مدل لوکال
 
 
-def _get_section(paper: dict, keywords: list) -> str:
-    """متن یک یا چند بخش مرتبط از JSON مقاله را برمی‌گرداند (نه از chroma، از متن کامل)."""
+def _get_section(paper: dict, keywords: list, prioritize_end: bool = False) -> str:
+    """متن یک یا چند بخش مرتبط را برمی‌گرداند. اگر prioritize_end فعال باشد، انتهای متن نگه داشته می‌شود."""
     parts = []
     for name, text in paper["sections"].items():
         if any(kw.lower() in name.lower() for kw in keywords):
             parts.append(text)
     combined = "\n".join(parts)
-    return combined[:MAX_SECTION_CHARS]
 
+    if len(combined) > MAX_SECTION_CHARS:
+        if prioritize_end:
+            return combined[-MAX_SECTION_CHARS:]
+        return combined[:MAX_SECTION_CHARS]
+    return combined
+
+
+COMMON_METRICS = ["accuracy", "precision", "recall", "f1", "f1 score", "map", "iou", "ap"]
 
 # ---------------------------------------------------------------------------
 # تابع اول (الزامی): extract_experimental_results
 # ---------------------------------------------------------------------------
-COMMON_METRICS = ["accuracy", "precision", "recall", "f1", "f1 score", "map", "iou", "ap"]
-
-
 def extract_experimental_results(paper_ids: list = None) -> dict:
     """
     برای هر مقاله، از بخش Results/Experiments، حداقل دو معیار ارزیابی مشترک
@@ -48,9 +52,10 @@ def extract_experimental_results(paper_ids: list = None) -> dict:
 
     results = {}
     for paper in papers:
-        section_text = _get_section(paper, ["Experiment", "Result", "Evaluation"])
+        # فعال کردن prioritize_end برای بخش نتایج
+        section_text = _get_section(paper, ["Experiment", "Result", "Evaluation"], prioritize_end=True)
         if not section_text:
-            section_text = _get_section(paper, ["Abstract"])  # fallback
+            section_text = _get_section(paper, ["Abstract"])
 
         system = (
             "You are a research assistant that extracts quantitative evaluation results "
@@ -93,7 +98,6 @@ def compare_results(paper_ids: list = None) -> dict:
     """
     extracted = extract_experimental_results(paper_ids)
 
-    # پیدا کردن معیارهای مشترک بین حداقل دو مقاله
     metric_counter = Counter()
     for pid, data in extracted.items():
         for metric_name in data["metrics"]:
@@ -102,10 +106,9 @@ def compare_results(paper_ids: list = None) -> dict:
     if not common_metrics and metric_counter:
         common_metrics = [metric_counter.most_common(1)[0][0]]
 
-    # ساخت جدول Markdown
     headers = ["Paper"] + [m.upper() for m in common_metrics] if common_metrics else ["Paper", "Metrics"]
     lines = ["| " + " | ".join(headers) + " |", "|" + "---|" * len(headers)]
-    chart_data = defaultdict(dict)  # metric -> {paper_title: numeric_value}
+    chart_data = defaultdict(dict)
 
     for pid, data in extracted.items():
         row = [data["title"][:40]]
@@ -122,11 +125,12 @@ def compare_results(paper_ids: list = None) -> dict:
         lines.append("| " + " | ".join(row) + " |")
 
     table_md = "\n".join(lines)
-
-    # ساخت نمودار مقایسه‌ای (یک subplot به ازای هر معیار مشترک با داده عددی)
     chart_path = None
     plot_metrics = {m: vals for m, vals in chart_data.items() if len(vals) >= 2}
+
     if plot_metrics:
+        # ایجاد پوشه در صورت عدم وجود
+        os.makedirs(OUTPUTS_DIR, exist_ok=True)
         n = len(plot_metrics)
         fig, axes = plt.subplots(1, n, figsize=(6 * n, 5))
         if n == 1:
@@ -142,9 +146,10 @@ def compare_results(paper_ids: list = None) -> dict:
         chart_path = os.path.join(OUTPUTS_DIR, "compare_results_chart.png")
         plt.savefig(chart_path, dpi=150)
         plt.close(fig)
+    else:
+        chart_path = "داده عددی معتبری برای رسم نمودار یافت نشد."
 
     return {"table_markdown": table_md, "chart_path": chart_path, "raw": extracted}
-
 
 def _extract_first_number(text: str):
     m = re.search(r"(\d+(?:\.\d+)?)", text)
@@ -192,6 +197,9 @@ PAPERS:
 {chr(10).join(paper_summaries)}
 """
     survey = llm_client.ask(prompt, system=system, temperature=0.3)
+
+    # ایجاد پوشه در صورت عدم وجود
+    os.makedirs(OUTPUTS_DIR, exist_ok=True)
     out_path = os.path.join(OUTPUTS_DIR, "mini_survey.md")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(survey)
@@ -244,19 +252,18 @@ def compare_references(paper_ids: list = None) -> dict:
     if paper_ids:
         papers = [p for p in papers if p["paper_id"] in paper_ids]
 
-    year_counts = {}   # paper_id -> {year: count}
+    year_counts = {}
     titles = {}
     for p in papers:
         ref_text = _get_section(p, ["References"])
-        # هر آیتم رفرنس معمولا با "[n]" شروع می‌شود؛ رفرنس‌ها را جدا می‌کنیم
-        entries = re.split(r"\[\d+\]", ref_text)
+        # تفکیک رفرنس‌ها بر اساس [n] یا خطوط جدید که با حرف یا عدد شروع می‌شوند
+        entries = re.split(r"\[\d+\]|\n\s*(?=\d+\.|[A-Z][a-z]+)", ref_text)
         counts = Counter()
         for entry in entries:
-            years = YEAR_PATTERN.findall(entry)
-            # findall با گروه capturing فقط "19"/"20" را برمی‌گرداند؛ دوباره search کامل انجام می‌دهیم
+            if not entry.strip():
+                continue
             full_years = re.findall(r"(?:19|20)\d{2}", entry)
             if full_years:
-                # آخرین سال ذکرشده در رفرنس معمولا سال انتشار است (نه سالی که در عنوان یک دیتاست آمده)
                 counts[full_years[-1]] += 1
         year_counts[p["paper_id"]] = dict(counts)
         titles[p["paper_id"]] = p["title"]
