@@ -3,6 +3,14 @@
 رابط کاربری پیشرفته با Gradio (امتیاز اضافه - بخش هشتم صورت پروژه).
 اجرا: python gradio_app.py
 """
+import os
+
+# اگر سیستم پشت VPN/پروکسی باشد (مثلاً برای دسترسی به HuggingFace)، همان پروکسی
+# می‌تواند جلوی درخواست خودِ Gradio به localhost را بگیرد و باعث خطای
+# "startup-events failed (code 503)" شود. با این تنظیم، ترافیک لوکال از پروکسی معاف می‌شود.
+os.environ.setdefault("NO_PROXY", "127.0.0.1,localhost")
+os.environ.setdefault("no_proxy", "127.0.0.1,localhost")
+
 import gradio as gr
 
 import rag
@@ -94,7 +102,11 @@ with gr.Blocks(title="دستیار پژوهشی هوشمند") as demo:
 
         def respond(message, history, audio):
             answer = chat_fn(message, history, audio)
-            history = history + [[message or "🎙️ (پیام صوتی)", answer]]
+            user_shown = message or "🎙️ (پیام صوتی)"
+            history = history + [
+                {"role": "user", "content": user_shown},
+                {"role": "assistant", "content": answer},
+            ]
             return history, "", None
 
         send_btn.click(respond, [txt, chatbot, audio_in], [chatbot, txt, audio_in])

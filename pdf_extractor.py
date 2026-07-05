@@ -146,6 +146,15 @@ def split_into_sections(full_text: str) -> dict:
     return sections
 
 
+def _looks_like_author_line(line: str) -> bool:
+    """تشخیص خط‌هایی که لیست نویسندگان هستند نه عنوان مقاله (مثل
+    'Yansong Peng1, Hebei Li1, Peixi Wu1, ...') تا در heuristic عنوان نادیده گرفته شوند."""
+    comma_count = line.count(",")
+    # لیست نویسندگان معمولا حداقل ۲ کاما دارد و اسم‌ها با اعداد بالانویس/ستاره همراهند
+    has_affiliation_marker = bool(re.search(r"[A-Za-z]\d(?:\*|,|$)", line)) or "*" in line
+    return comma_count >= 2 and has_affiliation_marker
+
+
 def extract_paper(pdf_path: str) -> dict:
     """خروجی نهایی: متن کامل + بخش‌بندی‌شده + عنوان تخمینی مقاله."""
     full_text = extract_full_text(pdf_path)
@@ -157,7 +166,9 @@ def extract_paper(pdf_path: str) -> dict:
         title_source = sections.get("Preamble", full_text)
         lines = [l.strip() for l in title_source.split("\n") if l.strip()]
         title_lines = []
-        for l in lines[:4]:
+        for l in lines[:6]:
+            if _looks_like_author_line(l):
+                break  # به محض رسیدن به خط نویسندگان، عنوان تمام شده
             if len(l) < 15 and title_lines:
                 break
             title_lines.append(l)

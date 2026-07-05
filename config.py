@@ -10,11 +10,23 @@ KB_DIR = os.path.join(BASE_DIR, "data", "kb")          # متادیتای است
 OUTPUTS_DIR = os.path.join(BASE_DIR, "data", "outputs")  # نمودار/جدول/گزارش خروجی
 CHROMA_DIR = os.path.join(BASE_DIR, "chroma_db")
 
+# ---------------- انتخاب Provider برای LLM ----------------
+# اگر True باشد از API آنلاین Groq استفاده می‌شود، اگر False باشد از Ollama لوکال.
+# می‌توانید همینجا مستقیم True/False کنید (نیازی به تنظیم متغیر محیطی نیست).
+USE_GROQ_API = os.environ.get("USE_GROQ_API", "False").lower() in ("1", "true", "yes")
+
 # ---------------- Ollama (LLM لوکال) ----------------
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 # هر مدلی که با ollama pull گرفته باشید قابل استفاده است (llama3.1, qwen2.5, mistral, ...)
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:3b")
 OLLAMA_TIMEOUT = 300
+
+# ---------------- Groq (LLM ابری، رایگان با rate-limit) ----------------
+# توکن را از https://console.groq.com/keys بگیرید و مستقیم همینجا جایگزین "" کنید
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+# مدل‌های رایج Groq: llama-3.3-70b-versatile, llama-3.1-8b-instant, gemma2-9b-it
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_TIMEOUT = 120
 
 # ---------------- Embedding (لوکال) ----------------
 # مدل چندزبانه چون مقالات انگلیسی هستند ولی سوالات ممکن است فارسی باشند
