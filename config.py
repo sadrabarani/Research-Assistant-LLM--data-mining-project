@@ -13,8 +13,8 @@ CHROMA_DIR = os.path.join(BASE_DIR, "chroma_db")
 # ---------------- انتخاب Provider برای LLM ----------------
 # اگر True باشد از API آنلاین Groq استفاده می‌شود، اگر False باشد از Ollama لوکال.
 # می‌توانید همینجا مستقیم True/False کنید (نیازی به تنظیم متغیر محیطی نیست).
-USE_GROQ_API = True
-# USE_GROQ_API = os.environ.get("USE_GROQ_API", "False").lower() in ("1", "true", "yes")
+# USE_GROQ_API = True
+USE_GROQ_API = os.environ.get("USE_GROQ_API", "False").lower() in ("1", "true", "yes")
 
 # ---------------- Ollama (LLM لوکال) ----------------
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
