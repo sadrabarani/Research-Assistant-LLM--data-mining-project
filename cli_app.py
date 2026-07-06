@@ -56,9 +56,14 @@ def main():
                 continue
             print("در حال تبدیل گفتار به متن...")
             v = voice_input.voice_to_query(audio_path)
+            # نمایش وضعیت کانال‌های صوتی
+            is_stereo = v.get("details", {}).get("is_stereo", False)
+            print(f"وضعیت فایل: {'دو کاناله (تلفنی)' if is_stereo else 'تک کاناله'}")
+
             print(f"متن خام Whisper: {v['raw_transcript']}")
             print(f"متن اصلاح‌شده توسط LLM: {v['refined_transcript']}")
             query = v["refined_transcript"]
+
 
         print("\nدر حال پردازش...\n")
         try:

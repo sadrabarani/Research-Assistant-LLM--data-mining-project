@@ -43,18 +43,30 @@ def do_build_kb():
 
 
 def chat_fn(message, history, audio):
-    query = message
+    parts = []
     voice_note = ""
+
+    # اگر صوت وجود داشت پردازش شود
     if audio:
         v = voice_input.voice_to_query(audio)
-        query = v["refined_transcript"]
+        parts.append(v["refined_transcript"])
         voice_note = f"🎙️ متن خام: {v['raw_transcript']}\n✍️ متن اصلاح‌شده: {v['refined_transcript']}\n\n"
+
+    # اگر متن وجود داشت اضافه شود
+    if message and message.strip():
+        parts.append(message.strip())
+
+    # ترکیب هر دو ورودی (یا استفاده از هرکدام که پر است)
+    query = " ".join(parts).strip()
+
+    if not query:
+        return "⚠️ لطفا سوال خود را به صورت متنی بنویسید یا دکمه ضبط صدا را بفشارید."
+
     try:
         answer = rag.answer(query)
     except Exception as e:
         answer = f"⚠️ خطا: {e}"
     return voice_note + answer
-
 
 def compare_fn():
     result = functions.compare_results()

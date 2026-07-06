@@ -13,7 +13,8 @@ CHROMA_DIR = os.path.join(BASE_DIR, "chroma_db")
 # ---------------- انتخاب Provider برای LLM ----------------
 # اگر True باشد از API آنلاین Groq استفاده می‌شود، اگر False باشد از Ollama لوکال.
 # می‌توانید همینجا مستقیم True/False کنید (نیازی به تنظیم متغیر محیطی نیست).
-USE_GROQ_API = os.environ.get("USE_GROQ_API", "False").lower() in ("1", "true", "yes")
+USE_GROQ_API = True
+# USE_GROQ_API = os.environ.get("USE_GROQ_API", "False").lower() in ("1", "true", "yes")
 
 # ---------------- Ollama (LLM لوکال) ----------------
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
@@ -22,10 +23,9 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:3b")
 OLLAMA_TIMEOUT = 300
 
 # ---------------- Groq (LLM ابری، رایگان با rate-limit) ----------------
-# توکن را از https://console.groq.com/keys بگیرید و مستقیم همینجا جایگزین "" کنید
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-# مدل‌های رایج Groq: llama-3.3-70b-versatile, llama-3.1-8b-instant, gemma2-9b-it
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_API_KEY = "YOUR_API_KEY_HERE"
+# مدل قدرتمند لاما که بالاترین دقت را در تحلیل مقالات دارد
+GROQ_MODEL = "llama-3.3-70b-versatile"
 GROQ_TIMEOUT = 120
 
 # ---------------- Embedding (لوکال) ----------------
@@ -35,7 +35,7 @@ EMBEDDING_MODEL_NAME = os.environ.get(
 )
 
 # ---------------- Whisper (صوت) ----------------
-WHISPER_MODEL_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "small")  # tiny/base/small/medium
+WHISPER_MODEL_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "base")  # tiny/base/small/medium
 
 # ---------------- Chunking ----------------
 CHUNK_SIZE_WORDS = 220      # اندازه هر chunk بر حسب تعداد کلمه
