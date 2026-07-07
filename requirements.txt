@@ -3,8 +3,10 @@ chromadb>=0.4.22
 sentence-transformers
 requests
 matplotlib
+chainlit
 gradio>=4.0.0
 openai-whisper
 groq>=0.4.0
 pydub
 pandas
+aiosqlite

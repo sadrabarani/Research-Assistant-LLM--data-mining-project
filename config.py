@@ -14,7 +14,7 @@ CHROMA_DIR = os.path.join(BASE_DIR, "chroma_db")
 # اگر True باشد از API آنلاین Groq استفاده می‌شود، اگر False باشد از Ollama لوکال.
 # می‌توانید همینجا مستقیم True/False کنید (نیازی به تنظیم متغیر محیطی نیست).
 # USE_GROQ_API = True
-USE_GROQ_API = os.environ.get("USE_GROQ_API", "False").lower() in ("1", "true", "yes")
+USE_GROQ_API = os.environ.get("USE_GROQ_API", "True").lower() in ("1", "true", "yes")
 
 # ---------------- Ollama (LLM لوکال) ----------------
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
@@ -23,9 +23,9 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:3b")
 OLLAMA_TIMEOUT = 300
 
 # ---------------- Groq (LLM ابری، رایگان با rate-limit) ----------------
-GROQ_API_KEY = "YOUR_API_KEY_HERE"
+GROQ_API_KEY = ""
 # مدل قدرتمند لاما که بالاترین دقت را در تحلیل مقالات دارد
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = "llama-3.1-8b-instant"
 GROQ_TIMEOUT = 120
 
 # ---------------- Embedding (لوکال) ----------------

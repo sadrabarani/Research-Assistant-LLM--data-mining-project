@@ -163,6 +163,47 @@ Answer (in the same language as the question):"""
     return llm_client.ask(prompt, system=system, temperature=0.2)
 
 
+def rag_answer_stream(user_query: str, top_k: int = TOP_K):
+    """
+    نسخه استریم rag_answer: یک generator که تکه‌متن‌ها را همزمان با تولید
+    توسط مدل yield می‌کند (برای رابط‌هایی مثل Chainlit که توکن‌به‌توکن نمایش می‌دهند).
+    """
+    hits = vectorstore.query(user_query, top_k=top_k)
+
+    has_relevant_context = bool(hits) and (
+        hits[0]["distance"] is None or hits[0]["distance"] <= SIMILARITY_DISTANCE_THRESHOLD
+    )
+
+    if not has_relevant_context:
+        yield "پاسخ شما در مقالات انتخاب‌شده یافت نشد.\nاما با استفاده از مدل زبانی، پاسخ عمومی به شرح زیر است:\n\n"
+        yield from llm_client.ask_stream(
+            user_query,
+            system="You are a knowledgeable assistant. Answer clearly and concisely.",
+        )
+        return
+
+    context_blocks = []
+    for h in hits:
+        meta = h["metadata"]
+        context_blocks.append(
+            f"[Paper: {meta['paper_title']} | Section: {meta['section']}]\n{h['text']}"
+        )
+    context = "\n\n---\n\n".join(context_blocks)
+
+    system = (
+        "You are a research assistant. Answer the user's question using ONLY the provided "
+        "context from the papers. Always mention which paper(s) support your answer. "
+        "If the context does not fully answer the question, say so honestly."
+    )
+    prompt = f"""Context from papers:
+{context}
+
+Question: {user_query}
+
+Answer (in the same language as the question):"""
+    yield from llm_client.ask_stream(prompt, system=system, temperature=0.2)
+
+
 # ------------------------------------------------------------------
 # نقطه ورود اصلی
 # ------------------------------------------------------------------
@@ -174,3 +215,75 @@ def answer(user_query: str) -> str:
         except Exception as e:
             return f"⚠️ خطا هنگام اجرای تابع `{fn_name}`: {e}"
     return rag_answer(user_query)
+
+
+def answer_stream(user_query: str):
+    """
+    نسخه استریم answer(): اگر سوال به یکی از توابع function-calling نیاز داشته
+    باشد (که چندین فراخوانی/پردازش دارد و طبیعتاً توکن‌به‌توکن نیست)، کل نتیجه
+    یکجا yield می‌شود؛ در غیر این صورت پاسخ RAG واقعاً توکن‌به‌توکن استریم می‌شود.
+    """
+    fn_name = route_intent(user_query)
+    if fn_name != "none":
+        try:
+            yield call_function(fn_name)
+        except Exception as e:
+            yield f"⚠️ خطا هنگام اجرای تابع `{fn_name}`: {e}"
+        return
+    yield from rag_answer_stream(user_query)
+
+
+def answer_stream(user_query: str, extra_context: str = None):
+    """
+    نسخه‌ی stream شده - برای واسط‌هایی مثل Chainlit که می‌خواهند توکن به
+    توکن پاسخ را نمایش دهند. اگر یکی از توابع function-calling تشخیص داده
+    شود، چون خروجی آن (جدول/نمودار) از قبل کامل ساخته می‌شود، یکجا yield
+    می‌شود؛ فقط بخش تولید متن آزاد (RAG معمولی) واقعاً token-by-token است.
+    """
+    if extra_context:
+        # کاربر یک فایل (PDF/عکس) در همین پیام attach کرده؛ پاسخ را مستقیم بر
+        # اساس محتوای همان فایل (نه پایگاه دانش مقالات) با LLM می‌سازیم.
+        system = (
+            "You are a helpful assistant. Answer the user's question using the "
+            "provided document content below."
+        )
+        prompt = f"Document content:\n{extra_context[:8000]}\n\nQuestion: {user_query}"
+        yield from llm_client.stream_ask(prompt, system=system, temperature=0.2)
+        return
+
+    fn_name = route_intent(user_query)
+    if fn_name != "none":
+        try:
+            yield call_function(fn_name)
+        except Exception as e:
+            yield f"⚠️ خطا هنگام اجرای تابع `{fn_name}`: {e}"
+        return
+
+    hits = vectorstore.query(user_query, top_k=TOP_K)
+    has_relevant_context = bool(hits) and (
+        hits[0]["distance"] is None or hits[0]["distance"] <= SIMILARITY_DISTANCE_THRESHOLD
+    )
+
+    if not has_relevant_context:
+        yield NOT_FOUND_TEMPLATE.format(general_answer="")
+        yield from llm_client.stream_ask(
+            user_query,
+            system="You are a knowledgeable assistant. Answer clearly and concisely.",
+        )
+        return
+
+    context_blocks = []
+    for h in hits:
+        meta = h["metadata"]
+        context_blocks.append(
+            f"[Paper: {meta['paper_title']} | Section: {meta['section']}]\n{h['text']}"
+        )
+    context = "\n\n---\n\n".join(context_blocks)
+
+    system = (
+        "You are a research assistant. Answer the user's question using ONLY the provided "
+        "context from the papers. Always mention which paper(s) support your answer. "
+        "If the context does not fully answer the question, say so honestly."
+    )
+    prompt = f"Context from papers:\n{context}\n\nQuestion: {user_query}\n\nAnswer (in the same language as the question):"
+    yield from llm_client.stream_ask(prompt, system=system, temperature=0.2)
